@@ -183,7 +183,7 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 	defer higherTrayTimer()()
 	
 	fmt.Printf("[%s] %s: %s\n", req.Method, req.RemoteAddr, req.URL)
-	req.ParseMultipartForm(400000000)
+	req.ParseMultipartForm(20000000)
 
 	if req.Method == "GET" {
 		fileDownload(httpWriter, req);	
