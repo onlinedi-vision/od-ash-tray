@@ -98,7 +98,7 @@ func decryptData(data []byte) ([]byte, error) {
 
 	for iter := range encSize / BlockSize {
 		offset := iter * BlockSize
-		go aesBlock.Decrypt(decryptedData[offset:offset+BlockSize], data[offset:offset+BlockSize])
+		aesBlock.Decrypt(decryptedData[offset:offset+BlockSize], data[offset:offset+BlockSize])
 	}
 	
 	return decryptedData, nil
