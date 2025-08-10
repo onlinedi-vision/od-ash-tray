@@ -6,6 +6,7 @@ import (
 	"time"
 	"os"
 	"io"
+	"strings"
 	"crypto/tls"
 	"encoding/hex"
 	"crypto/aes"
@@ -31,7 +32,18 @@ const (
 	BlockSize = 16
 )
 
-func createNewAshTray(extension string) (string, string) {
+func createNewAshTray(req *http.Request) (string, string) {
+	var extension string
+
+	for _, value := range req.MultipartForm.File {
+		for _, part := range value {
+			split := strings.Split(part.Filename, ".")
+			extension = split[len(split)-1]
+			break
+		}
+		break
+	}
+	
 	dirUUID, err := uuid.NewV7()
 	newUUID, err2 := uuid.NewV7()
 	if err != nil || err2 != nil {
@@ -127,12 +139,11 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 }
 
 func fileUpload(httpWriter http.ResponseWriter, req *http.Request) {
-	filePath, directory := createNewAshTray("gif")
+	filePath, directory := createNewAshTray(req)
+	fmt.Printf(" + fileUpload(): filePath=%s   directory=%s", filePath, directory)
 
-	for key,value := range req.MultipartForm.File {
-		fmt.Println(key, " : ")
+	for _,value := range req.MultipartForm.File {
 		for _, file_part := range value {
-			fmt.Println(file_part)
 			file, err := file_part.Open()
 			if err != nil {
 				fmt.Println(err)
