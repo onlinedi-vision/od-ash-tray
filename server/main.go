@@ -70,6 +70,56 @@ func encryptData(data string) ([]byte, error) {
 	return encryptedData, nil
 }
 
+func decryptData(data []byte) ([]byte, error) {
+	
+	aesBlock,err := aes.NewCipher(ashKey)
+	if err != nil {
+		return nil, err		
+	}
+	decryptedData := make([]byte, encSize)
+
+	for iter := range encSize / BlockSize {
+		offset := iter * BlockSize
+		aesBlock.Decrypt(decryptedData[offset:offset+BlockSize], data[offset:offset+BlockSize])
+	}
+	
+	return decryptedData, nil
+}
+
+func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
+	filePath := fmt.Sprintf("%s%s", ashTrayDir, req.URL.Path)
+	fmt.Printf(" + fileDownload(): filePath=%s\n", filePath)
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		fmt.Printf("   %s file doesn't exist\n", filePath)
+		fmt.Fprintf(httpWriter, "HTTP/1.1 404 Not Found \r\n")
+		return
+	}
+	defer file.Close()
+
+	buffer := make([]byte, encSize)
+
+	fmt.Println("   sending file")
+
+	for {
+	    readTotal, err := file.Read(buffer)
+	    if err != nil {
+	        if err != io.EOF {
+	            fmt.Println(err)
+	        }
+	        break
+	    }
+		decryptedData, err := decryptData(buffer[:readTotal])
+		if err != nil {
+			break
+		}
+	    fmt.Fprintf(httpWriter, "%s", string(decryptedData[:]))
+	    
+	}
+	
+}
+
 func fileUpload(httpWriter http.ResponseWriter, req *http.Request) {
 	filePath, directory := createNewAshTray("gif")
 
@@ -82,17 +132,17 @@ func fileUpload(httpWriter http.ResponseWriter, req *http.Request) {
 			}
 			defer file.Close()
 
-		    b := make([]byte, encSize)
+		    buffer := make([]byte, encSize)
 
 		    for {
-		        readTotal, err := file.Read(b)
+		        readTotal, err := file.Read(buffer)
 		        if err != nil {
 		            if err != io.EOF {
 		                fmt.Println(err)
 		            }
 		            break
 		        }
-		        data, err := encryptData(fmt.Sprintf("%s%s", ashHighSignature, string(b[:readTotal]))) 
+		        data, err := encryptData(string(buffer[:readTotal])) 
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -101,22 +151,32 @@ func fileUpload(httpWriter http.ResponseWriter, req *http.Request) {
 		    }
 		}
 	}
-	fmt.Fprintf(httpWriter, filePath)
+	fmt.Fprintf(httpWriter, "HTTP/1.1 201 Created \r\n\r\n%s", filePath)
+}
+
+func higherTrayTimer() func() {
+	start := time.Now()
+	return func() {
+		fmt.Printf("Duration: %v\n\n", time.Since(start))
+	}
 }
 
 func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
-	fmt.Printf("[%s] %s: %s\n", req.Method, req.Host, req.URL)
+	defer higherTrayTimer()()
+	
+	fmt.Printf("[%s] %s: %s\n", req.Method, req.RemoteAddr, req.URL)
 	req.ParseMultipartForm(4096000)
 
-	if req.Method == "POST" && req.URL.Path == "/upload" {
+	if req.Method == "GET" {
+		fileDownload(httpWriter, req);	
+	} else if req.Method == "POST" && req.URL.Path == "/upload" {
 		fileUpload(httpWriter, req)		
 	} else {
-		fmt.Fprintf(httpWriter, "WRONG")
+		fmt.Fprintf(httpWriter, "HTTP/1.1 400 Bad Request \r\n\r\nPlease GET for download or POST /upload for multipart form upload.")
 	}
 }
 
 func main() {
-	fmt.Println(ashTrayDir)
 
 	err := os.Mkdir(fmt.Sprintf("%s/%s", ashTrayDir, ashID), os.ModePerm)
 	if err != nil {
