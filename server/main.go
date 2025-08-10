@@ -140,7 +140,7 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 
 func fileUpload(httpWriter http.ResponseWriter, req *http.Request) {
 	filePath, directory := createNewAshTray(req)
-	fmt.Printf(" + fileUpload(): filePath=%s   directory=%s", filePath, directory)
+	fmt.Printf(" + fileUpload(): filePath=%s   directory=%s\n", filePath, directory)
 
 	for _,value := range req.MultipartForm.File {
 		for _, file_part := range value {
