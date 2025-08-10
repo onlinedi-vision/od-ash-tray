@@ -132,6 +132,7 @@ func fileUpload(httpWriter http.ResponseWriter, req *http.Request) {
 	for key,value := range req.MultipartForm.File {
 		fmt.Println(key, " : ")
 		for _, file_part := range value {
+			fmt.Prinln(file_part)
 			file, err := file_part.Open()
 			if err != nil {
 				fmt.Println(err)
