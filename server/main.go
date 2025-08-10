@@ -28,7 +28,7 @@ var (
 )
 
 const (
-	encSize = 512000
+	encSize = 1024000
 	BlockSize = 16
 )
 
