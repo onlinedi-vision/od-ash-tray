@@ -6,6 +6,7 @@ import (
 	"time"
 	"os"
 	"io"
+	"crypto/tls"
 	"encoding/hex"
 	"crypto/aes"
 	"github.com/google/uuid"
@@ -18,6 +19,11 @@ var (
 	ashHighSignature = os.Getenv("ASH_HIGH_SIGNATURE")
 	ashLowSignature = os.Getenv("ASH_LOW_SIGNATURE")
 	ashKey = []byte(os.Getenv("ASH_TRAY_KEY"))
+)
+
+var (
+	CertFilePath = "/etc/letsencrypt/live/onlinedi.vision/fullchain.pem"
+	KeyFilePath  = "/etc/letsencrypt/live/onlinedi.vision/privkey.pem"
 )
 
 const (
@@ -182,6 +188,16 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	serverTLSCert, err := tls.LoadX509KeyPair(CertFilePath, KeyFilePath)
+	if err != nil {
+		fmt.Println("COULD NOT LOAD TLS CERTIFICATE... BAILING OUT...")
+		return 
+	}
+	
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{serverTLSCert},
+	}
 		
 	tray_server := &http.Server{
 		Addr:           fmt.Sprintf(":%s", os.Getenv("ASH_TRAY_PORT")),
@@ -189,6 +205,7 @@ func main() {
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
+		TLSConfig:      tlsConfig, 
 	}
-	log.Fatal(tray_server.ListenAndServe())
+	log.Fatal(tray_server.ListenAndServeTLS("",""))
 }
