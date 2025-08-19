@@ -1,1 +1,6 @@
-FROM alpine:3.22
+FROM golang
+
+COPY ./ ./
+RUN go build
+
+ENTRYPOINT ["./od-ash-tray"]
