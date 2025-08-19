@@ -28,6 +28,7 @@ var (
 )
 
 const (
+	MaxFormMemorySize = 20000000
 	encSize = 16096
 	BlockSize = 16
 )
@@ -179,14 +180,18 @@ func higherTrayTimer() func() {
 	}
 }
 
-func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
+func ashGet(httpWriter http.ResponseWriter, req *http.Request, ashes []Ash) {
+	fileDownload(httpWriter, req);	
+}
+
+func higherTray(httpWriter http.ResponseWriter, req *http.Request, ashes []Ash) {
 	defer higherTrayTimer()()
 	
 	fmt.Printf("[%s] %s: %s\n", req.Method, req.RemoteAddr, req.URL)
-	req.ParseMultipartForm(20000000)
+	req.ParseMultipartForm(MaxFormMemorySize)
 
 	if req.Method == "GET" {
-		fileDownload(httpWriter, req);	
+		ashGet(httpWriter, req, ashes)
 	} else if req.Method == "POST" && req.URL.Path == "/upload" {
 		fileUpload(httpWriter, req)		
 	} else {
@@ -196,6 +201,13 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 
 func main() {
 
+	ashLayout := newAshLayout()
+
+	if ashTrayDir == "" {
+		fmt.Println("ASH_TRAY_DIR env var MUST be set")
+		return
+	}
+	
 	err := os.Mkdir(fmt.Sprintf("%s/%s", ashTrayDir, ashID), os.ModePerm)
 	if err != nil {
 		fmt.Println(err)
