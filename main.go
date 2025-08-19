@@ -180,18 +180,19 @@ func higherTrayTimer() func() {
 	}
 }
 
-func ashGet(httpWriter http.ResponseWriter, req *http.Request/*, ashes []Ash*/) {
+func ashGet(httpWriter http.ResponseWriter, req *http.Request, ashes []Ash) {
 	fileDownload(httpWriter, req);	
 }
 
-func higherTray(httpWriter http.ResponseWriter, req *http.Request/*, ashes []Ash*/) {
+func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 	defer higherTrayTimer()()
-	
+	ashes := newAshes()
+
 	fmt.Printf("[%s] %s: %s\n", req.Method, req.RemoteAddr, req.URL)
 	req.ParseMultipartForm(MaxFormMemorySize)
 
 	if req.Method == "GET" {
-		ashGet(httpWriter, req/*, ashes*/)
+		ashGet(httpWriter, req, ashes)
 	} else if req.Method == "POST" && req.URL.Path == "/upload" {
 		fileUpload(httpWriter, req)		
 	} else {
@@ -201,7 +202,6 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request/*, ashes []Ash
 
 func main() {
 
-	// ashLayout := newAshLayout()
 
 	if ashTrayDir == "" {
 		fmt.Println("ASH_TRAY_DIR env var MUST be set")
