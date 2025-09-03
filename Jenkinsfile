@@ -32,32 +32,32 @@ pipeline {
 			parallel {
 				stage('First Shadow') {
 					steps{
-						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/1.png" -k https://127.0.0.1:7377/upload | tail -n1) \
-							echo $file_sufix \
-							curl "https://127.0.0.1:7377/${file_sufix}" -k -o test1 \
-							count=$(wc -l shadows/1.png | cut -f1 -d" ") \
-							diffr=$(sdiff -B -b -s test1 shadows/1.png | wc -l) \
-							exit $(( $diffr*100/$count )) \
+						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/1.png" -k https://127.0.0.1:7377/upload | tail -n1); \
+							echo "${file_sufix}"; \
+							curl "https://127.0.0.1:7377/${file_sufix}" -k -o test1 ;\
+							count=$(wc -l shadows/1.png | cut -f1 -d" "); \
+							diffr=$(sdiff -B -b -s test1 shadows/1.png | wc -l); \
+							exit $(( $diffr*100/$count )); \
 						'
 					}
 				}
 				stage('Second Shadow') {
 					steps{
-						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/2.png" -k https://127.0.0.1:7377/upload | tail -n1) \
-							curl -k "https://127.0.0.1:7377/${file_sufix}" -o test2 \
-							count=$(wc -l shadows/2.png | cut -f1 -d" ") \
-							diffr=$(sdiff -B -b -s test2 shadows/2.png | wc -l) \
-							exit $(( $diffr*100/$count )) \
+						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/2.png" -k https://127.0.0.1:7377/upload | tail -n1); \
+							curl -k "https://127.0.0.1:7377/${file_sufix}" -o test2; \
+							count=$(wc -l shadows/2.png | cut -f1 -d" "); \
+							diffr=$(sdiff -B -b -s test2 shadows/2.png | wc -l); \
+							exit $(( $diffr*100/$count )); \
 						'
 					}
 				}
 				stage('Third Shadow') {
 					steps {
-						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/3.png" -k https://127.0.0.1:7377/upload | tail -n1) \
-							curl -k "https://127.0.0.1:7377/${file_sufix}" -o test3 \
-							count=$(wc -l shadows/3.png | cut -f1 -d" ") \
-							diffr=$(sdiff -B -b -s test3 shadows/3.png | wc -l) \
-							exit $(( $diffr*100/$count )) \
+						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/3.png" -k https://127.0.0.1:7377/upload | tail -n1); \
+							curl -k "https://127.0.0.1:7377/${file_sufix}" -o test3; \
+							count=$(wc -l shadows/3.png | cut -f1 -d" "); \
+							diffr=$(sdiff -B -b -s test3 shadows/3.png | wc -l); \
+							exit $(( $diffr*100/$count )); \
 						'
 					}
 				}
