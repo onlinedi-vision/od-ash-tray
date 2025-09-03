@@ -23,8 +23,8 @@ var (
 )
 
 var (
-	CertFilePath = "/etc/letsencrypt/live/onlinedi.vision/fullchain.pem"
-	KeyFilePath  = "/etc/letsencrypt/live/onlinedi.vision/privkey.pem"
+	CertFilePath = "/certs/fullchain.pem"
+	KeyFilePath  = "/certs/privkey.pem"
 )
 
 const (

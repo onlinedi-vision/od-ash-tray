@@ -10,3 +10,5 @@ services:
       - ASH_TRAY_PORT=7377
     volumes:
       - /cdn:/cdn:rw
+      - /etc/letsencrypt/live/onlinedi.vision:/certs:r
+
