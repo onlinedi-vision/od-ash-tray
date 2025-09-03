@@ -8,6 +8,12 @@ pipeline {
   }
 
   stages {
+		stage('Certs Copy (ISSUE)') {
+			steps {
+				sh 'cp /etc/letsencrypt/live/onlinedi.vision/fullchain.pem fullchain.pem'
+				sh 'cp /etc/letsencrypt/live/onlinedi.vision/privkey.pem privkey.pem'
+			}
+		}
 		stage('Docker Shadow Build') {
 			steps {
 				sh 'docker compose -f shadow-compose.yaml build'
@@ -71,8 +77,6 @@ pipeline {
 
 	  stage('Docker Build') {
 		  steps {
-				sh 'cp /etc/letsencrypt/live/onlinedi.vision/fullchain.pem fullchain.pem'
-				sh 'cp /etc/letsencrypt/live/onlinedi.vision/privkey.pem privkey.pem'
 		  	sh 'docker compose -f compose.yaml build'
      	 }
 	  }
