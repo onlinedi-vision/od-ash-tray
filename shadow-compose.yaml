@@ -1,0 +1,12 @@
+services:
+  od-ash_tray:
+    build: .
+    ports: 
+      - "0.0.0.0:7377:7377"
+    environment:
+      - ASH_TRAY_ID
+      - ASH_TRAY_DIRECTORY=/cdn
+      - ASH_TRAY_KEY
+      - ASH_TRAY_PORT=7377
+    volumes:
+      - /var/lib/jenkins/del_cdn:/cdn:rw
