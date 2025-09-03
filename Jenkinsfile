@@ -71,11 +71,11 @@ pipeline {
 			}
 		}
 
-		stage('Cleanup Shadow Arena') {
-			steps {
-				sh 'rm -rf ~/del_cdn'
-			}
-		}
+		// stage('Cleanup Shadow Arena') {
+		// 	steps {
+		// 		sh 'rm -rf ~/del_cdn'
+		// 	}
+		// }
 			
 	  stage('Docker Kill') {
 		  steps {
