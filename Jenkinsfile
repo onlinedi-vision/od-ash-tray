@@ -22,7 +22,7 @@ pipeline {
 
 		stage('Docker Shadow Run') {
 			steps {
-				sh 'docker compose -f shadow-compose.yaml up'
+				sh 'docker compose -f shadow-compose.yaml up -d'
 			}
 		}
 
