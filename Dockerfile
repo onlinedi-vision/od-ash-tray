@@ -5,4 +5,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /od-ash-tray .
 
 FROM scratch
 COPY --from=build /od-ash-tray /od-ash-tray
+
+# bandaid fix
+# we'll have to fix this later...
+COPY ./fullchain.pem fullchain.pem
+COPY ./privkey.pem privkey.pem
 CMD ["/od-ash-tray"]
