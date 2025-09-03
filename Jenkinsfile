@@ -14,6 +14,11 @@ pipeline {
 				sh 'cp /etc/letsencrypt/live/onlinedi.vision/privkey.pem privkey.pem'
 			}
 		}
+		stage('DEL_CDN Setup') {
+			steps {
+				sh 'mkdir ~/del_cdn'
+			}
+		}
 		stage('Docker Shadow Build') {
 			steps {
 				sh 'docker compose -f shadow-compose.yaml build'
