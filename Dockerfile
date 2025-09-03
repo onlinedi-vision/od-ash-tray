@@ -10,4 +10,5 @@ COPY --from=build /od-ash-tray /od-ash-tray
 # we'll have to fix this later...
 COPY ./fullchain.pem fullchain.pem
 COPY ./privkey.pem privkey.pem
+COPY ./ash.yaml ./ash.yaml
 CMD ["/od-ash-tray"]
