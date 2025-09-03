@@ -1,7 +1,8 @@
 FROM golang AS build
-COPY ./ ./
-RUN go build
+WORKDIR /app
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /od-ash-tray .
 
 FROM scratch
-COPY --from=build /go/od-ash-tray ./od-ash-tray
-ENTRYPOINT ["./od-ash-tray"]
+COPY --from=build /od-ash-tray /od-ash-tray
+CMD ["/od-ash-tray"]

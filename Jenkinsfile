@@ -8,12 +8,11 @@ pipeline {
   }
 
   stages {
-	  // stage('Docker Kill') {
-		 //  steps {
-			//   sh 'docker kill ash_container || echo "NO ALIVE CONTAINER"'
-			//   sh 'docker rm ash_container || echo "NO CONTAINER NAMED ash_container"'
-		 //  }
-	  // }
+	  stage('Docker Kill') {
+		  steps {
+				sh 'docker compose down'
+		  }
+	  }
 
 	  stage('Docker Build') {
 		  steps {
