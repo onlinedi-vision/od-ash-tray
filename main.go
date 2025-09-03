@@ -23,8 +23,8 @@ var (
 )
 
 var (
-	CertFilePath = "/certs/fullchain.pem"
-	KeyFilePath  = "/certs/privkey.pem"
+	CertFilePath = "/fullchain.pem"
+	KeyFilePath  = "/privkey.pem"
 )
 
 const (
