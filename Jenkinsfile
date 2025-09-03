@@ -26,7 +26,7 @@ pipeline {
 				sh 'docker compose up -d'
       }
 	  }
-		steps('Certs Cleanup') {
+		stage('Certs Cleanup') {
 			steps {
 				sh 'rm privkey.pem fullchain.pem'
 			}
