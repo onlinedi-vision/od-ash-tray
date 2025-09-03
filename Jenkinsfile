@@ -22,7 +22,9 @@ pipeline {
 
 		stage('Docker Shadow Run') {
 			steps {
-				sh 'docker compose -f shadow-compose.yaml up -d'
+				withCredentials([vaultString(credentialsId:'vault-ash-key',variable:'ASH_TRAY_KEY')]){
+					sh 'docker compose -f shadow-compose.yaml up -d'
+				}
 			}
 		}
 
