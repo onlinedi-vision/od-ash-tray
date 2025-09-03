@@ -23,7 +23,9 @@ pipeline {
 	  }
    	stage('Docker Run') {
 		  steps {
-				sh 'docker compose up -d'
+				 withCredentials([vaultString(credentialsId:'vault-ash-key',variable:'ASH_TRAY_KEY')]){
+						sh 'docker compose up -d'
+				}
       }
 	  }
 		stage('Certs Cleanup') {
