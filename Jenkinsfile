@@ -16,7 +16,7 @@ pipeline {
 		}
 		stage('DEL_CDN Setup') {
 			steps {
-				sh 'mkdir ~/del_cdn'
+				sh 'stat ~/del_cdn 2> /dev/null > /dev/null || mkdir ~/del_cdn'
 			}
 		}
 		stage('Docker Shadow Build') {
@@ -67,7 +67,27 @@ pipeline {
 					}
 				}
 
+				stage('4th Shadow') {
+					steps {
+						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/4.png" -k https://127.0.0.1:7377/upload | tail -n1); \
+							curl -k "https://127.0.0.1:7377/${file_sufix}" -o test4; \
+							count=$(wc -l shadows/4.png | cut -f1 -d" "); \
+							diffr=$(sdiff -B -b -s test4 shadows/4.png | wc -l); \
+							exit $(( $diffr*100/$count )); \
+						'
+					}
+				}
 
+				stage('5th Shadow') {
+					steps {
+						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/5.png" -k https://127.0.0.1:7377/upload | tail -n1); \
+							curl -k "https://127.0.0.1:7377/${file_sufix}" -o test5; \
+							count=$(wc -l shadows/5.png | cut -f1 -d" "); \
+							diffr=$(sdiff -B -b -s test5 shadows/5.png | wc -l); \
+							exit $(( $diffr*100/$count )); \
+						'
+					}
+				}
 			}
 		}
 
