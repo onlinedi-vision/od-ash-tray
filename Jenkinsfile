@@ -36,7 +36,7 @@ pipeline {
 					steps{
 						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/2.png" https://onlinedi.vision:7377/upload | tail -n1) \
 							curl https://127.0.0.1:7377/$file_sufix -o test2 \
-							count=$(wc -l shadows/2.png | cut -f1 -d' ') \
+							count=$(wc -l shadows/2.png | cut -f1 -d" ") \
 							diffr=$(sdiff -B -b -s test screen.png | wc -l) \
 							exit $(( $diffr*100/$count )) \
 						'
@@ -46,7 +46,7 @@ pipeline {
 					steps {
 						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/3.png" https://onlinedi.vision:7377/upload | tail -n1) \
 							curl https://127.0.0.1:7377/$file_sufix -o test3 \
-							count=$(wc -l shadows/3.png | cut -f1 -d' ') \
+							count=$(wc -l shadows/3.png | cut -f1 -d" ") \
 							diffr=$(sdiff -B -b -s test screen.png | wc -l) \
 							exit $(( $diffr*100/$count )) \
 						'
