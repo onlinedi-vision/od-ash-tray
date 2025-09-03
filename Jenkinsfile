@@ -26,7 +26,7 @@ pipeline {
 					steps{
 						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/1.png" https://onlinedi.vision:7377/upload | tail -n1) \
 							curl https://127.0.0.1:7377/$file_sufix -o test1 \
-							count=$(wc -l shadows/1.png | cut -f1 -d' ') \
+							count=$(wc -l shadows/1.png | cut -f1 -d" ") \
 							diffr=$(sdiff -B -b -s test screen.png | wc -l) \
 							exit $(( $diffr*100/$count )) \
 						'
