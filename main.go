@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	"crypto/sha256"
 )
-
+// tigger jenkins
 var (
 	ashID = os.Getenv("ASH_TRAY_ID")
 	ashTrayDir = os.Getenv("ASH_TRAY_DIRECTORY")
