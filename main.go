@@ -193,7 +193,7 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 
 	if req.Method == "GET" {
 		if req.URL.Path == "/ping" {
-			fmt.Fprintf(httpWriter, "ping", filePath)
+			fmt.Fprintf(httpWriter, "ping")
 		} else {
 			ashGet(httpWriter, req, ashes)
 		}
