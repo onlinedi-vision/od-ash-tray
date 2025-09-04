@@ -192,7 +192,11 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 	req.ParseMultipartForm(MaxFormMemorySize)
 
 	if req.Method == "GET" {
-		ashGet(httpWriter, req, ashes)
+		if req.URL.Path == "/ping" {
+			fmt.Fprintf(httpWriter, "ping", filePath)
+		} else {
+			ashGet(httpWriter, req, ashes)
+		}
 	} else if req.Method == "POST" && req.URL.Path == "/upload" {
 		fileUpload(httpWriter, req)		
 	} else {
