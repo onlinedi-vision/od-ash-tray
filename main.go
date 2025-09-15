@@ -1,25 +1,27 @@
 package main
+
 import (
-	"log"
-	"net/http"
-	"fmt"
-	"time"
-	"os"
-	"io"
-	"strings"
+	"crypto/aes"
+	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
-	"crypto/aes"
+	"fmt"
 	"github.com/google/uuid"
-	"crypto/sha256"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"strings"
+	"time"
 )
+
 // tigger jenkins
 var (
-	ashID = os.Getenv("ASH_TRAY_ID")
-	ashTrayDir = os.Getenv("ASH_TRAY_DIRECTORY")
+	ashID            = os.Getenv("ASH_TRAY_ID")
+	ashTrayDir       = os.Getenv("ASH_TRAY_DIRECTORY")
 	ashHighSignature = os.Getenv("ASH_HIGH_SIGNATURE")
-	ashLowSignature = os.Getenv("ASH_LOW_SIGNATURE")
-	ashKey = []byte(os.Getenv("ASH_TRAY_KEY"))
+	ashLowSignature  = os.Getenv("ASH_LOW_SIGNATURE")
+	ashKey           = []byte(os.Getenv("ASH_TRAY_KEY"))
 )
 
 var (
@@ -29,8 +31,8 @@ var (
 
 const (
 	MaxFormMemorySize = 20000000
-	encSize = 16096
-	BlockSize = 16
+	encSize           = 16096
+	BlockSize         = 16
 )
 
 func createNewAshTray(req *http.Request) (string, string) {
@@ -44,13 +46,13 @@ func createNewAshTray(req *http.Request) (string, string) {
 		}
 		break
 	}
-	
+
 	dirUUID, err := uuid.NewV7()
 	newUUID, err2 := uuid.NewV7()
 	if err != nil || err2 != nil {
 		return "", ""
 	}
-	
+
 	sha := sha256.Sum256([]byte(dirUUID[:]))
 	directory := hex.EncodeToString(sha[:])
 	filename := hex.EncodeToString(newUUID[:])
@@ -60,10 +62,10 @@ func createNewAshTray(req *http.Request) (string, string) {
 func writeToFile(filePath string, directory string, data []byte) {
 
 	_ = os.Mkdir(fmt.Sprintf("%s/%s/%s", ashTrayDir, ashID, directory), os.ModePerm)
-		
-	ashFile, err := os.OpenFile(fmt.Sprintf("%s/%s", ashTrayDir,filePath), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+
+	ashFile, err := os.OpenFile(fmt.Sprintf("%s/%s", ashTrayDir, filePath), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-    	log.Fatal(err)
+		log.Fatal(err)
 	}
 	defer ashFile.Close()
 
@@ -72,28 +74,28 @@ func writeToFile(filePath string, directory string, data []byte) {
 
 func encryptData(data string) ([]byte, error) {
 
-	aesBlock,err := aes.NewCipher(ashKey)
+	aesBlock, err := aes.NewCipher(ashKey)
 	if err != nil {
-		return nil, err		
+		return nil, err
 	}
 	encryptedData := make([]byte, encSize)
 
-	bytesOfData := make([]byte,encSize)
+	bytesOfData := make([]byte, encSize)
 	copy(bytesOfData[:], data)
 
 	for iter := range encSize / BlockSize {
 		offset := iter * BlockSize
 		aesBlock.Encrypt(encryptedData[offset:offset+BlockSize], bytesOfData[offset:offset+BlockSize])
 	}
-	
+
 	return encryptedData, nil
 }
 
 func decryptData(data []byte) ([]byte, error) {
-	
-	aesBlock,err := aes.NewCipher(ashKey)
+
+	aesBlock, err := aes.NewCipher(ashKey)
 	if err != nil {
-		return nil, err		
+		return nil, err
 	}
 	decryptedData := make([]byte, encSize)
 
@@ -101,7 +103,7 @@ func decryptData(data []byte) ([]byte, error) {
 		offset := iter * BlockSize
 		aesBlock.Decrypt(decryptedData[offset:offset+BlockSize], data[offset:offset+BlockSize])
 	}
-	
+
 	return decryptedData, nil
 }
 
@@ -122,28 +124,28 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 	fmt.Println("   sending file")
 
 	for {
-	    readTotal, err := file.Read(buffer)
-	    if err != nil {
-	        if err != io.EOF {
-	            fmt.Println(err)
-	        }
-	        break
-	    }
+		readTotal, err := file.Read(buffer)
+		if err != nil {
+			if err != io.EOF {
+				fmt.Println(err)
+			}
+			break
+		}
 		decryptedData, err := decryptData(buffer[:readTotal])
 		if err != nil {
 			break
 		}
-	    fmt.Fprintf(httpWriter, "%s", string(decryptedData[:]))
-	    
+		fmt.Fprintf(httpWriter, "%s", string(decryptedData[:]))
+
 	}
-	
+
 }
 
 func fileUpload(httpWriter http.ResponseWriter, req *http.Request) {
 	filePath, directory := createNewAshTray(req)
 	fmt.Printf(" + fileUpload(): filePath=%s   directory=%s\n", filePath, directory)
 
-	for _,value := range req.MultipartForm.File {
+	for _, value := range req.MultipartForm.File {
 		for _, file_part := range value {
 			file, err := file_part.Open()
 			if err != nil {
@@ -151,23 +153,23 @@ func fileUpload(httpWriter http.ResponseWriter, req *http.Request) {
 			}
 			defer file.Close()
 
-		    buffer := make([]byte, encSize)
+			buffer := make([]byte, encSize)
 
-		    for {
-		        readTotal, err := file.Read(buffer)
-		        if err != nil {
-		            if err != io.EOF {
-		                fmt.Println(err)
-		            }
-		            break
-		        }
-		        data, err := encryptData(string(buffer[:readTotal])) 
+			for {
+				readTotal, err := file.Read(buffer)
+				if err != nil {
+					if err != io.EOF {
+						fmt.Println(err)
+					}
+					break
+				}
+				data, err := encryptData(string(buffer[:readTotal]))
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
 				writeToFile(filePath, directory, data)
-		    }
+			}
 		}
 	}
 	fmt.Fprintf(httpWriter, "HTTP/1.1 201 Created \r\n\r\n%s", filePath)
@@ -181,7 +183,7 @@ func higherTrayTimer() func() {
 }
 
 func ashGet(httpWriter http.ResponseWriter, req *http.Request, ashes []Ash) {
-	fileDownload(httpWriter, req);	
+	fileDownload(httpWriter, req)
 }
 
 func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
@@ -190,7 +192,7 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 
 	fmt.Printf("[%s] %s: %s\n", req.Method, req.RemoteAddr, req.URL)
 	req.ParseMultipartForm(MaxFormMemorySize)
-
+	httpWriter.Header().Set("Access-Control-Allow-Origin", "*")
 	if req.Method == "GET" {
 		if req.URL.Path == "/ping" {
 			fmt.Fprintf(httpWriter, "ping")
@@ -198,7 +200,7 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 			ashGet(httpWriter, req, ashes)
 		}
 	} else if req.Method == "POST" && req.URL.Path == "/upload" {
-		fileUpload(httpWriter, req)		
+		fileUpload(httpWriter, req)
 	} else {
 		fmt.Fprintf(httpWriter, "HTTP/1.1 400 Bad Request \r\n\r\nPlease GET for download or POST /upload for multipart form upload.")
 	}
@@ -206,12 +208,11 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 
 func main() {
 
-
 	if ashTrayDir == "" {
 		fmt.Println("ASH_TRAY_DIR env var MUST be set")
 		return
 	}
-	
+
 	err := os.Mkdir(fmt.Sprintf("%s/%s", ashTrayDir, ashID), os.ModePerm)
 	if err != nil {
 		fmt.Println(err)
@@ -220,20 +221,20 @@ func main() {
 	serverTLSCert, err := tls.LoadX509KeyPair(CertFilePath, KeyFilePath)
 	if err != nil {
 		fmt.Println("COULD NOT LOAD TLS CERTIFICATE... BAILING OUT...")
-		return 
+		return
 	}
-	
+
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{serverTLSCert},
 	}
-		
+
 	tray_server := &http.Server{
 		Addr:           fmt.Sprintf(":%s", os.Getenv("ASH_TRAY_PORT")),
 		Handler:        http.HandlerFunc(higherTray),
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
-		TLSConfig:      tlsConfig, 
+		TLSConfig:      tlsConfig,
 	}
-	log.Fatal(tray_server.ListenAndServeTLS("",""))
+	log.Fatal(tray_server.ListenAndServeTLS("", ""))
 }
