@@ -135,6 +135,7 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			break
 		}
+		httpWriter.WriteHeader(200)
 		fmt.Fprintf(httpWriter, "%s", string(decryptedData[:]))
 
 	}
@@ -172,7 +173,8 @@ func fileUpload(httpWriter http.ResponseWriter, req *http.Request) {
 			}
 		}
 	}
-	fmt.Fprintf(httpWriter, "HTTP/1.1 201 Created \r\n\r\n%s", filePath)
+	httpWriter.WriteHeader(201)
+	fmt.Fprintf(httpWriter,"%s", filePath)
 }
 
 func higherTrayTimer() func() {
@@ -192,7 +194,9 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 
 	fmt.Printf("[%s] %s: %s\n", req.Method, req.RemoteAddr, req.URL)
 	req.ParseMultipartForm(MaxFormMemorySize)
+	
 	httpWriter.Header().Set("Access-Control-Allow-Origin", "*")
+
 	if req.Method == "GET" {
 		if req.URL.Path == "/ping" {
 			fmt.Fprintf(httpWriter, "ping")
@@ -202,7 +206,8 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 	} else if req.Method == "POST" && req.URL.Path == "/upload" {
 		fileUpload(httpWriter, req)
 	} else {
-		fmt.Fprintf(httpWriter, "HTTP/1.1 400 Bad Request \r\n\r\nPlease GET for download or POST /upload for multipart form upload.")
+		httpWriter.WriteHeader(400)
+		fmt.Fprintf(httpWriter, "Please GET for download or POST /upload for multipart form upload.")
 	}
 }
 
