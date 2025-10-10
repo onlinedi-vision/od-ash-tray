@@ -1,0 +1,22 @@
+name: Docker Compose CI
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      docker:
+        image: docker:latest
+        options: --privileged
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Build Docker Prod Images
+        run: |
+          docker compose -f compose.yaml build
+      - name: Build Docker Shadow Images
+        run: |
+          docker compose -f shadow-compose.yaml build
