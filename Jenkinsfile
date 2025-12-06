@@ -10,8 +10,9 @@ pipeline {
   stages {
 		stage('Certs Copy (ISSUE)') {
 			steps {
-				sh 'cp /etc/letsencrypt/live/onlinedi.vision/fullchain.pem fullchain.pem'
-				sh 'cp /etc/letsencrypt/live/onlinedi.vision/privkey.pem privkey.pem'
+				sh 'cp /etc/letsencrypt/archive/onlinedi.vision/fullchain2.pem fullchain.pem'
+				sh 'cp /etc/letsencrypt/archive/onlinedi.vision/privkey2.pem privkey.pem'
+				sh 'touch ash.yaml'
 			}
 		}
 		stage('DEL_CDN Setup') {
