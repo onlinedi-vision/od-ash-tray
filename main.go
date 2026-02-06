@@ -275,6 +275,8 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 	if req.Method == "GET" {
 		if req.URL.Path == "/ash/ping" {
 			fmt.Fprintf(httpWriter, "ping")
+		} else if req.URL.Path == "/pong" {
+			fmt.Fprintf(httpWriter, "pong")
 		} else {
 			ashGet(httpWriter, req)
 		}
