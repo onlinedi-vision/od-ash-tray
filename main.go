@@ -130,11 +130,15 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			if err != io.EOF {
 				fmt.Println(err)
+				httpWriter.WriteHeader(500)
+				fmt.Fprintf(httpWriter, "Failed at reading from file.")
 			}
 			break
 		}
 		decryptedData, err := decryptData(buffer[:readTotal])
 		if err != nil {
+			httpWriter.WriteHeader(500)
+			fmt.Fprintf(httpWriter, "Failed at file decryption.")
 			break
 		}
 		httpWriter.WriteHeader(200)
