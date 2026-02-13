@@ -114,7 +114,9 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Printf("   %s file doesn't exist\n", filePath)
-		fmt.Fprintf(httpWriter, "HTTP/1.1 404 Not Found \r\n")
+		
+		httpWriter.WriteHeader(404)
+		fmt.Fprintf(httpWriter, "404 Not Found \r\n")
 		return
 	}
 	defer file.Close()
