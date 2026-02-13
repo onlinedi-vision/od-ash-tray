@@ -8,13 +8,6 @@ pipeline {
   }
 
   stages {
-		stage('Certs Copy (ISSUE)') {
-			steps {
-				sh 'cp /etc/letsencrypt/archive/onlinedi.vision/fullchain2.pem fullchain.pem'
-				sh 'cp /etc/letsencrypt/archive/onlinedi.vision/privkey2.pem privkey.pem'
-				sh 'touch ash.yaml'
-			}
-		}
 		stage('DEL_CDN Setup') {
 			steps {
 				sh 'stat ~/del_cdn 2> /dev/null > /dev/null || mkdir ~/del_cdn'
@@ -39,11 +32,8 @@ pipeline {
 				stage('First Shadow') {
 					steps{
 						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/1.png" -k https://127.0.0.1:7377/upload | tail -n1); \
-							echo "${file_sufix}"; \
 							curl "https://127.0.0.1:7377/${file_sufix}" -k -o test1 ;\
-							count=$(wc -l shadows/1.png | cut -f1 -d" "); \
-							diffr=$(sdiff -B -b -s test1 shadows/1.png | wc -l); \
-							exit $(( $diffr*100/$count )); \
+							diff test1 shadows/1.png \
 						'
 					}
 				}
@@ -51,9 +41,7 @@ pipeline {
 					steps{
 						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/2.png" -k https://127.0.0.1:7377/upload | tail -n1); \
 							curl -k "https://127.0.0.1:7377/${file_sufix}" -o test2; \
-							count=$(wc -l shadows/2.png | cut -f1 -d" "); \
-							diffr=$(sdiff -B -b -s test2 shadows/2.png | wc -l); \
-							exit $(( $diffr*100/$count )); \
+							diff test2 shadows/2.png \
 						'
 					}
 				}
@@ -61,9 +49,7 @@ pipeline {
 					steps {
 						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/3.png" -k https://127.0.0.1:7377/upload | tail -n1); \
 							curl -k "https://127.0.0.1:7377/${file_sufix}" -o test3; \
-							count=$(wc -l shadows/3.png | cut -f1 -d" "); \
-							diffr=$(sdiff -B -b -s test3 shadows/3.png | wc -l); \
-							exit $(( $diffr*100/$count )); \
+							diff test3 shadows/3.png \
 						'
 					}
 				}
@@ -72,9 +58,7 @@ pipeline {
 					steps {
 						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/4.png" -k https://127.0.0.1:7377/upload | tail -n1); \
 							curl -k "https://127.0.0.1:7377/${file_sufix}" -o test4; \
-							count=$(wc -l shadows/4.png | cut -f1 -d" "); \
-							diffr=$(sdiff -B -b -s test4 shadows/4.png | wc -l); \
-							exit $(( $diffr*100/$count )); \
+							diff test4 shadows/4.png \
 						'
 					}
 				}
@@ -83,20 +67,18 @@ pipeline {
 					steps {
 						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/5.png" -k https://127.0.0.1:7377/upload | tail -n1); \
 							curl -k "https://127.0.0.1:7377/${file_sufix}" -o test5; \
-							count=$(wc -l shadows/5.png | cut -f1 -d" "); \
-							diffr=$(sdiff -B -b -s test5 shadows/5.png | wc -l); \
-							exit $(( $diffr*100/$count )); \
+							diff test5 shadows/5.png \
 						'
 					}
 				}
 			}
 		}
 
-		// stage('Cleanup Shadow Arena') {
-		// 	steps {
-		// 		sh 'rm -rf ~/del_cdn'
-		// 	}
-		// }
+		stage('Cleanup Shadow Arena') {
+			steps {
+				sh 'rm -rf ~/del_cdn'
+			}
+		}
 			
 	  stage('Docker Kill') {
 		  steps {
@@ -116,10 +98,5 @@ pipeline {
 				}
       }
 	  }
-		stage('Certs Cleanup') {
-			steps {
-				sh 'rm privkey.pem fullchain.pem'
-			}
-		}
   }
 }

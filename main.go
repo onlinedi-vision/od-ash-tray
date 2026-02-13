@@ -1,32 +1,33 @@
 package main
 
 import (
+
 	"crypto/aes"
 	"crypto/sha256"
-	"crypto/tls"
+	// "crypto/tls"
+	"crypto/cipher"
+	"crypto/rand"
+
 	"encoding/hex"
+	
+	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+	
+	"github.com/google/uuid"
 )
 
-// tigger jenkins
 var (
-	ashID            = os.Getenv("ASH_TRAY_ID")
+	ashID            = "ash"
 	ashTrayDir       = os.Getenv("ASH_TRAY_DIRECTORY")
 	ashHighSignature = os.Getenv("ASH_HIGH_SIGNATURE")
 	ashLowSignature  = os.Getenv("ASH_LOW_SIGNATURE")
 	ashKey           = []byte(os.Getenv("ASH_TRAY_KEY"))
-)
-
-var (
-	CertFilePath = "/fullchain.pem"
-	KeyFilePath  = "/privkey.pem"
 )
 
 const (
@@ -94,17 +95,21 @@ func encryptData(data string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	encryptedData := make([]byte, encSize)
 
-	bytesOfData := make([]byte, encSize)
-	copy(bytesOfData[:], data)
-
-	for iter := range encSize / BlockSize {
-		offset := iter * BlockSize
-		aesBlock.Encrypt(encryptedData[offset:offset+BlockSize], bytesOfData[offset:offset+BlockSize])
+	gcm, err := cipher.NewGCM(aesBlock)
+	if err != nil {
+		return nil, err
 	}
 
-	return encryptedData, nil
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
+
+	ciphertext := gcm.Seal(nonce, nonce, []byte(data), nil)
+
+	return ciphertext, nil
+	
 }
 
 func decryptData(data []byte) ([]byte, error) {
@@ -113,14 +118,25 @@ func decryptData(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	decryptedData := make([]byte, encSize)
 
-	for iter := range encSize / BlockSize {
-		offset := iter * BlockSize
-		aesBlock.Decrypt(decryptedData[offset:offset+BlockSize], data[offset:offset+BlockSize])
+	gcm, err := cipher.NewGCM(aesBlock)
+	if err != nil {
+		return nil, err
 	}
 
-	return decryptedData, nil
+	nonceSize := gcm.NonceSize()
+	if len(data) < nonceSize {
+		return nil, errors.New("ciphertext too short")
+	}
+
+	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
+
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return plaintext, nil
 }
 
 func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
@@ -206,13 +222,12 @@ func higherTrayTimer() func() {
 	}
 }
 
-func ashGet(httpWriter http.ResponseWriter, req *http.Request, ashes []Ash) {
+func ashGet(httpWriter http.ResponseWriter, req *http.Request) {
 	fileDownload(httpWriter, req)
 }
 
 func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 	defer higherTrayTimer()()
-	ashes := newAshes()
 
 	fmt.Printf("[%s] %s: %s\n", req.Method, req.RemoteAddr, req.URL)
 	req.ParseMultipartForm(MaxFormMemorySize)
@@ -220,12 +235,12 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 	httpWriter.Header().Set("Access-Control-Allow-Origin", "*")
 
 	if req.Method == "GET" {
-		if req.URL.Path == "/ping" {
+		if req.URL.Path == "/ash/ping" {
 			fmt.Fprintf(httpWriter, "ping")
 		} else {
-			ashGet(httpWriter, req, ashes)
+			ashGet(httpWriter, req)
 		}
-	} else if req.Method == "POST" && req.URL.Path == "/upload" {
+	} else if req.Method == "POST" && req.URL.Path == "/ash/upload" {
 		fileUpload(httpWriter, req)
 	} else {
 		httpWriter.WriteHeader(400)
@@ -236,7 +251,7 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 func main() {
 
 	if ashTrayDir == "" {
-		fmt.Println("ASH_TRAY_DIR env var MUST be set")
+		fmt.Println("ASH_TRAY_DIRECTORY env var MUST be set")
 		return
 	}
 
@@ -245,27 +260,12 @@ func main() {
 		fmt.Println(err)
 	}
 
-	// TODO: remove TLS certification. This will be a joint effort
-	//       for both the backend and sysops team to fix this garbage
-	//       deployment. This could also be considered a (kind-of)
-	//       VULNERABILITY:
-	serverTLSCert, err := tls.LoadX509KeyPair(CertFilePath, KeyFilePath)
-	if err != nil {
-		fmt.Println("COULD NOT LOAD TLS CERTIFICATE... BAILING OUT...")
-		return
-	}
-
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{serverTLSCert},
-	}
-
 	tray_server := &http.Server{
-		Addr:           fmt.Sprintf(":%s", os.Getenv("ASH_TRAY_PORT")),
+		Addr:           fmt.Sprintf("127.0.0.1:%s", os.Getenv("ASH_TRAY_PORT")),
 		Handler:        http.HandlerFunc(higherTray),
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
-		TLSConfig:      tlsConfig,
 	}
-	log.Fatal(tray_server.ListenAndServeTLS("", ""))
+	log.Fatal(tray_server.ListenAndServe())
 }
