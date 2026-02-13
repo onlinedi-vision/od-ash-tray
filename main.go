@@ -53,9 +53,25 @@ func createNewAshTray(req *http.Request) (string, string) {
 		return "", ""
 	}
 
+	// TODO: see if we could use something stronger then
+	//       SHA256 here... maybe argon2? 
 	sha := sha256.Sum256([]byte(dirUUID[:]))
 	directory := hex.EncodeToString(sha[:])
 	filename := hex.EncodeToString(newUUID[:])
+
+	// TODO: BUG: CRITICAL: VULNERABILITY: URGENT: FIX:
+	//
+	// Here instead of using 'filename' we should use a hashed 'filename'.
+	// Then we should return the UN-hashed filename alongside the filePath
+	// and directory variables. The UN-hashed filename variable should be
+	// combined with the ashKey and be used for encryption/decryption.
+	// It should then be returned to the user. Via URL.
+	//
+	// We also need to change the way we give users their files. When a
+	// user requests a file (with the UN-hashed filename) we will hash
+	// that key and use it for decryption.
+	//
+	// Any reason to also hash the directory name?
 	return fmt.Sprintf("%s/%s/%s.%s", ashID, directory, filename, extension), directory
 }
 
@@ -229,6 +245,10 @@ func main() {
 		fmt.Println(err)
 	}
 
+	// TODO: remove TLS certification. This will be a joint effort
+	//       for both the backend and sysops team to fix this garbage
+	//       deployment. This could also be considered a (kind-of)
+	//       VULNERABILITY:
 	serverTLSCert, err := tls.LoadX509KeyPair(CertFilePath, KeyFilePath)
 	if err != nil {
 		fmt.Println("COULD NOT LOAD TLS CERTIFICATE... BAILING OUT...")
