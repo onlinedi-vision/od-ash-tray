@@ -1,16 +1,12 @@
 package main
 
 import (
-
 	"crypto/aes"
 	"crypto/sha256"
-	// "crypto/tls"
 	"crypto/cipher"
 	"crypto/rand"
-
+	"encoding/binary"
 	"encoding/hex"
-	
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -90,52 +86,69 @@ func writeToFile(filePath string, directory string, data []byte) {
 }
 
 func encryptData(data string) ([]byte, error) {
-
+	
 	aesBlock, err := aes.NewCipher(ashKey)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	gcm, err := cipher.NewGCM(aesBlock)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	nonce := make([]byte, gcm.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return nil, err
 	}
-
-	ciphertext := gcm.Seal(nonce, nonce, []byte(data), nil)
-
-	return ciphertext, nil
 	
+	ciphertext := gcm.Seal(nil, nonce, []byte(data), nil)
+	
+	encryptedLen := len(nonce) + len(ciphertext)
+	result := make([]byte, 4+encryptedLen)
+	binary.BigEndian.PutUint32(result[:4], uint32(encryptedLen))
+	copy(result[4:], nonce)
+	copy(result[4+len(nonce):], ciphertext)
+	
+	return result, nil
 }
 
 func decryptData(data []byte) ([]byte, error) {
-
+	
+	if len(data) < 4 {
+		return nil, fmt.Errorf("data too short")
+	}
+	
+	expectedLen := int(binary.BigEndian.Uint32(data[:4]))
+	if len(data) < 4+expectedLen {
+		return nil, fmt.Errorf("incomplete data")
+	}
+	
+	encryptedData := data[4 : 4+expectedLen]
+	
 	aesBlock, err := aes.NewCipher(ashKey)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	gcm, err := cipher.NewGCM(aesBlock)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	nonceSize := gcm.NonceSize()
-	if len(data) < nonceSize {
-		return nil, errors.New("ciphertext too short")
+	if len(encryptedData) < nonceSize {
+		return nil, fmt.Errorf("encrypted data too short")
 	}
-
-	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
-
+	
+	nonce := encryptedData[:nonceSize]
+	ciphertext := encryptedData[nonceSize:]
+	
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	return plaintext, nil
 }
 
@@ -153,31 +166,56 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 	}
 	defer file.Close()
 
-	buffer := make([]byte, encSize)
+	buffer := make([]byte, 65536)
+	var leftover []byte
 
 	fmt.Println("   sending file")
 
+	httpWriter.WriteHeader(200)
+
 	for {
 		readTotal, err := file.Read(buffer)
-		if err != nil {
-			if err != io.EOF {
+		if err != nil && err != io.EOF {
+			httpWriter.WriteHeader(500)
+			fmt.Fprintf(httpWriter, "Failed at reading from file.")
+			break
+		}
+		
+		if readTotal == 0 {
+			break
+		}
+		
+		data := append(leftover, buffer[:readTotal]...)
+		leftover = nil
+		
+		offset := 0
+		for offset+4 <= len(data) {
+			blockLen := int(binary.BigEndian.Uint32(data[offset:offset+4]))
+			if offset+4+blockLen > len(data) {
+				leftover = data[offset:]
+				break
+			}
+			
+			decryptedData, err := decryptData(data[offset : offset+4+blockLen])
+			if err != nil {
 				fmt.Println(err)
 				httpWriter.WriteHeader(500)
-				fmt.Fprintf(httpWriter, "Failed at reading from file.")
+				fmt.Fprintf(httpWriter, "Failed at file decryption.")
+				return
 			}
+			
+			httpWriter.Write(decryptedData)
+			offset += 4 + blockLen
+		}
+		
+		if offset < len(data) && leftover == nil {
+			leftover = data[offset:]
+		}
+		
+		if err == io.EOF {
 			break
 		}
-		decryptedData, err := decryptData(buffer[:readTotal])
-		if err != nil {
-			httpWriter.WriteHeader(500)
-			fmt.Fprintf(httpWriter, "Failed at file decryption.")
-			break
-		}
-		httpWriter.WriteHeader(200)
-		fmt.Fprintf(httpWriter, "%s", string(decryptedData[:]))
-
 	}
-
 }
 
 func fileUpload(httpWriter http.ResponseWriter, req *http.Request) {
