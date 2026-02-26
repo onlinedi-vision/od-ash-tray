@@ -299,7 +299,7 @@ func main() {
 	}
 
 	tray_server := &http.Server{
-		Addr:           fmt.Sprintf("127.0.0.1:%s", os.Getenv("ASH_TRAY_PORT")),
+		Addr:           fmt.Sprintf("0.0.0.0:%s", os.Getenv("ASH_TRAY_PORT")),
 		Handler:        http.HandlerFunc(higherTray),
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
