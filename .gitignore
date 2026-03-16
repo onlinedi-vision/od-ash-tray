@@ -1,4 +1,7 @@
 /build
 /od-ash-tray
 /ash-tray
+.env
+/cdn/*
+test*
 
