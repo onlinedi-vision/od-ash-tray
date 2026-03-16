@@ -31,7 +31,7 @@ pipeline {
 			parallel {
 				stage('First Shadow') {
 					steps{
-						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/1.png" -k http://127.0.0.1:7377/upload | tail -n1); \
+						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/1.png" -k http://127.0.0.1:7377/ash/upload | tail -n1); \
 							curl "http://127.0.0.1:7377/${file_sufix}" -k -o test1 ;\
 							diff test1 shadows/1.png \
 						'
@@ -39,7 +39,7 @@ pipeline {
 				}
 				stage('Second Shadow') {
 					steps{
-						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/2.png" -k http://127.0.0.1:7377/upload | tail -n1); \
+						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/2.png" -k http://127.0.0.1:7377/ash/upload | tail -n1); \
 							curl -k "http://127.0.0.1:7377/${file_sufix}" -o test2; \
 							diff test2 shadows/2.png \
 						'
@@ -47,7 +47,7 @@ pipeline {
 				}
 				stage('Third Shadow') {
 					steps {
-						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/3.png" -k http://127.0.0.1:7377/upload | tail -n1); \
+						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/3.png" -k http://127.0.0.1:7377/ash/upload | tail -n1); \
 							curl -k "http://127.0.0.1:7377/${file_sufix}" -o test3; \
 							diff test3 shadows/3.png \
 						'
@@ -56,7 +56,7 @@ pipeline {
 
 				stage('4th Shadow') {
 					steps {
-						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/4.png" -k http://127.0.0.1:7377/upload | tail -n1); \
+						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/4.png" -k http://127.0.0.1:7377/ash/upload | tail -n1); \
 							curl -k "http://127.0.0.1:7377/${file_sufix}" -o test4; \
 							diff test4 shadows/4.png \
 						'
@@ -65,7 +65,7 @@ pipeline {
 
 				stage('5th Shadow') {
 					steps {
-						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/5.png" -k http://127.0.0.1:7377/upload | tail -n1); \
+						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/5.png" -k http://127.0.0.1:7377/ash/upload | tail -n1); \
 							curl -k "http://127.0.0.1:7377/${file_sufix}" -o test5; \
 							diff test5 shadows/5.png \
 						'
