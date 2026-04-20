@@ -1,7 +1,7 @@
 services:
   od-ash_tray:
     build:
-      dockerfile: ci-Dockerfile
+      dockerfile: Dockerfile.ci
     ports: 
       - "0.0.0.0:7377:7377"
     environment:
