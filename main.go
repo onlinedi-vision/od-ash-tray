@@ -154,11 +154,23 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 	filePath := fmt.Sprintf("%s%s", ashTrayDir, req.URL.Path)
 	fmt.Printf(" + fileDownload(): filePath=%s\n", filePath)
 
-	if state, etag := isEtagValid(filePath, httpWriter, req); state {
+	switch state, err := isEtagValid(filePath, httpWriter, req); state {
+	case CannotOpenFile:
+		fmt.Printf("   %s cannot open file: %s\n", err, filePath)
+
+		httpWriter.WriteHeader(500)
+		fmt.Fprintf(httpWriter, "500 Failed to open file.\r\n")
 		return
-	} else {
-		fmt.Printf("   set etag to: %s\n", etag)
-		httpWriter.Header().Set("Etag", etag)
+	case CannotCreateEtag:
+		fmt.Printf("   %s cannot create etag for:\n", err)
+		httpWriter.WriteHeader(500)
+		fmt.Fprintf(httpWriter, "500 Failed to create etag \r\n")
+		return
+	case ValidEtag:
+		fmt.Printf("   etag HIT")
+		return
+	case InvalidEtag:
+		fmt.Printf("   etag MISS")
 	}
 
 	file, err := os.Open(filePath)
