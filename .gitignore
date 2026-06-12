@@ -3,5 +3,5 @@
 /ash-tray
 .env
 /cdn/*
-test*
+/test/*
 

@@ -2,9 +2,9 @@ package main
 
 import (
 	"crypto/aes"
-	"crypto/sha256"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -14,7 +14,7 @@ import (
 	"os"
 	"strings"
 	"time"
-	
+
 	"github.com/google/uuid"
 )
 
@@ -51,7 +51,7 @@ func createNewAshTray(req *http.Request) (string, string) {
 	}
 
 	// TODO: see if we could use something stronger then
-	//       SHA256 here... maybe argon2? 
+	//       SHA256 here... maybe argon2?
 	sha := sha256.Sum256([]byte(dirUUID[:]))
 	directory := hex.EncodeToString(sha[:])
 	filename := hex.EncodeToString(newUUID[:])
@@ -73,82 +73,80 @@ func createNewAshTray(req *http.Request) (string, string) {
 }
 
 func writeToFile(filePath string, directory string, data []byte) {
-
 	_ = os.Mkdir(fmt.Sprintf("%s/%s/%s", ashTrayDir, ashID, directory), os.ModePerm)
 
-	ashFile, err := os.OpenFile(fmt.Sprintf("%s/%s", ashTrayDir, filePath), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	ashFile, err := os.OpenFile(fmt.Sprintf("%s/%s", ashTrayDir, filePath), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		log.Fatal(err)
 	}
+	// TODO: wow what a retarded fucking way to do things...
 	defer ashFile.Close()
 
 	ashFile.Write(data)
 }
 
 func encryptData(data string) ([]byte, error) {
-	
 	aesBlock, err := aes.NewCipher(ashKey)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	gcm, err := cipher.NewGCM(aesBlock)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	nonce := make([]byte, gcm.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return nil, err
 	}
-	
+
 	ciphertext := gcm.Seal(nil, nonce, []byte(data), nil)
-	
+
 	encryptedLen := len(nonce) + len(ciphertext)
 	result := make([]byte, 4+encryptedLen)
 	binary.BigEndian.PutUint32(result[:4], uint32(encryptedLen))
 	copy(result[4:], nonce)
 	copy(result[4+len(nonce):], ciphertext)
-	
+
 	return result, nil
 }
 
 func decryptData(data []byte) ([]byte, error) {
-	
 	if len(data) < 4 {
 		return nil, fmt.Errorf("data too short")
 	}
-	
+
 	expectedLen := int(binary.BigEndian.Uint32(data[:4]))
 	if len(data) < 4+expectedLen {
 		return nil, fmt.Errorf("incomplete data")
 	}
-	
+
 	encryptedData := data[4 : 4+expectedLen]
-	
+
 	aesBlock, err := aes.NewCipher(ashKey)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	gcm, err := cipher.NewGCM(aesBlock)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	nonceSize := gcm.NonceSize()
 	if len(encryptedData) < nonceSize {
 		return nil, fmt.Errorf("encrypted data too short")
 	}
-	
+
 	nonce := encryptedData[:nonceSize]
 	ciphertext := encryptedData[nonceSize:]
-	
+
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return plaintext, nil
 }
 
@@ -156,10 +154,29 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 	filePath := fmt.Sprintf("%s%s", ashTrayDir, req.URL.Path)
 	fmt.Printf(" + fileDownload(): filePath=%s\n", filePath)
 
+	switch state, err := isEtagValid(filePath, httpWriter, req); state {
+	case CannotOpenFile:
+		fmt.Printf("   %s cannot open file: %s\n", err, filePath)
+
+		httpWriter.WriteHeader(500)
+		fmt.Fprintf(httpWriter, "500 Failed to open file.\r\n")
+		return
+	case CannotCreateEtag:
+		fmt.Printf("   %s cannot create etag for:\n", err)
+		httpWriter.WriteHeader(500)
+		fmt.Fprintf(httpWriter, "500 Failed to create etag \r\n")
+		return
+	case ValidEtag:
+		fmt.Printf("   etag HIT")
+		return
+	case InvalidEtag:
+		fmt.Printf("   etag MISS")
+	}
+
 	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Printf("   %s file doesn't exist\n", filePath)
-		
+
 		httpWriter.WriteHeader(404)
 		fmt.Fprintf(httpWriter, "404 Not Found \r\n")
 		return
@@ -180,22 +197,22 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 			fmt.Fprintf(httpWriter, "Failed at reading from file.")
 			break
 		}
-		
+
 		if readTotal == 0 {
 			break
 		}
-		
+
 		data := append(leftover, buffer[:readTotal]...)
 		leftover = nil
-		
+
 		offset := 0
 		for offset+4 <= len(data) {
-			blockLen := int(binary.BigEndian.Uint32(data[offset:offset+4]))
+			blockLen := int(binary.BigEndian.Uint32(data[offset : offset+4]))
 			if offset+4+blockLen > len(data) {
 				leftover = data[offset:]
 				break
 			}
-			
+
 			decryptedData, err := decryptData(data[offset : offset+4+blockLen])
 			if err != nil {
 				fmt.Println(err)
@@ -203,15 +220,15 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 				fmt.Fprintf(httpWriter, "Failed at file decryption.")
 				return
 			}
-			
+
 			httpWriter.Write(decryptedData)
 			offset += 4 + blockLen
 		}
-		
+
 		if offset < len(data) && leftover == nil {
 			leftover = data[offset:]
 		}
-		
+
 		if err == io.EOF {
 			break
 		}
@@ -250,7 +267,7 @@ func fileUpload(httpWriter http.ResponseWriter, req *http.Request) {
 		}
 	}
 	httpWriter.WriteHeader(201)
-	fmt.Fprintf(httpWriter,"%s", filePath)
+	fmt.Fprintf(httpWriter, "%s", filePath)
 }
 
 func higherTrayTimer() func() {
@@ -269,7 +286,7 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 
 	fmt.Printf("[%s] %s: %s\n", req.Method, req.RemoteAddr, req.URL)
 	req.ParseMultipartForm(MaxFormMemorySize)
-	
+
 	httpWriter.Header().Set("Access-Control-Allow-Origin", "*")
 
 	if req.Method == "GET" {
@@ -287,7 +304,6 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
-
 	if ashTrayDir == "" {
 		fmt.Println("ASH_TRAY_DIRECTORY env var MUST be set")
 		return
