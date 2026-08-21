@@ -3,7 +3,7 @@ services:
     build:
       dockerfile: Dockerfile.ci
     ports: 
-      - "0.0.0.0:7377:7377"
+      - "127.0.0.1:${ASH_HOST_PORT:-17377}:7377"
     environment:
       - ASH_TRAY_ID=ash
       - ASH_TRAY_DIRECTORY=/cdn

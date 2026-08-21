@@ -1,96 +1,102 @@
+def imageTag() {
+	def branchName = env.GIT_BRANCH.tokenize('/').last()
+	return "registry.onlinedi.vision:5000/od-ash-tray:v${branchName}"
+}
+
+def buildAndScanImage = {
+	def tag = imageTag()
+
+	sh 'docker buildx bake -f docker-bake.hcl --set release.output=type=docker'
+
+	sh """
+		docker run --rm \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		aquasec/trivy:0.36.0 image \
+		--format table \
+		--exit-code 1 \
+		--ignore-unfixed \
+		--vuln-type os,library \
+		--severity CRITICAL,HIGH \
+		'${tag}'
+	"""
+}
+
 pipeline {
-  agent any
-  
-  environment {
-    API_PORT='1313'
-    WS_PORT='9002' 
-    
-  }
+	agent any
 
-  stages {
-		stage('DEL_CDN Setup') {
+	options {
+		disableConcurrentBuilds()
+		timeout(time: 2, unit: 'HOURS')
+	}
+
+	stages {
+		stage('Shadow Test') {
 			steps {
-				sh 'stat ~/del_cdn 2> /dev/null > /dev/null || mkdir ~/del_cdn'
+				sh './launch-test-env.sh -t'
 			}
 		}
-		stage('Docker Shadow Build') {
+
+		stage('Build and Scan Image') {
 			steps {
-				sh 'docker compose -f shadow-compose.yaml build'
+				script {
+					buildAndScanImage()
+				}
 			}
 		}
 
-		stage('Docker Shadow Run') {
+		stage('Push Image') {
+			when {
+				expression { env.GIT_BRANCH ==~ /^refs\/tags\/\d+\.\d+\.\d+$/ }
+			}
+
 			steps {
-				withCredentials([vaultString(credentialsId:'vault-ash-key',variable:'ASH_TRAY_KEY')]){
-					sh 'docker compose -f shadow-compose.yaml up -d'
-				}
-			}
-		}
-
-		stage('Shadow Boxing') {
-			parallel {
-				stage('First Shadow') {
-					steps{
-						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/1.png" -k http://127.0.0.1:7377/ash/upload | tail -n1); \
-							curl "http://127.0.0.1:7377/${file_sufix}" -k -o test1 ;\
-							diff test1 shadows/1.png \
-						'
-					}
-				}
-				stage('Second Shadow') {
-					steps{
-						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/2.png" -k http://127.0.0.1:7377/ash/upload | tail -n1); \
-							curl -k "http://127.0.0.1:7377/${file_sufix}" -o test2; \
-							diff test2 shadows/2.png \
-						'
-					}
-				}
-				stage('Third Shadow') {
-					steps {
-						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/3.png" -k http://127.0.0.1:7377/ash/upload | tail -n1); \
-							curl -k "http://127.0.0.1:7377/${file_sufix}" -o test3; \
-							diff test3 shadows/3.png \
-						'
-					}
-				}
-
-				stage('4th Shadow') {
-					steps {
-						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/4.png" -k http://127.0.0.1:7377/ash/upload | tail -n1); \
-							curl -k "http://127.0.0.1:7377/${file_sufix}" -o test4; \
-							diff test4 shadows/4.png \
-						'
-					}
-				}
-
-				stage('5th Shadow') {
-					steps {
-						sh 'file_sufix=$(curl -i -X POST -H "Content-Type: multipart/form-data" -F "data=@shadows/5.png" -k http://127.0.0.1:7377/ash/upload | tail -n1); \
-							curl -k "http://127.0.0.1:7377/${file_sufix}" -o test5; \
-							diff test5 shadows/5.png \
-						'
+				script {
+					withDockerRegistry(
+						url: 'https://registry.onlinedi.vision:5000',
+						credentialsId: 'docker-registry'
+					) {
+						sh 'docker buildx bake -f docker-bake.hcl --set release.output=type=registry'
 					}
 				}
 			}
 		}
 
-	  stage('Docker Kill') {
-		  steps {
-				sh 'docker compose down'
-		  }
-	  }
+		stage('Deploy') {
+			when {
+				expression { env.GIT_BRANCH ==~ /^refs\/tags\/\d+\.\d+\.\d+$/ }
+			}
 
-	  stage('Docker Build') {
-		  steps {
-		  	sh 'docker compose -f compose.yaml build'
-     	 }
-	  }
-   	stage('Docker Run') {
-		  steps {
-				 withCredentials([vaultString(credentialsId:'vault-ash-key',variable:'ASH_TRAY_KEY')]){
-						sh 'docker compose up -d'
+			steps {
+				script {
+					def tag = imageTag()
+
+					withDockerRegistry(
+						url: 'https://registry.onlinedi.vision:5000',
+						credentialsId: 'docker-registry'
+					) {
+						withCredentials([
+							vaultString(credentialsId: 'vault-ash-key', variable: 'ASH_TRAY_KEY')
+						]) {
+							sh "OD_ASH_TRAY_IMAGE='${tag}' docker compose up -d --remove-orphans"
+						}
+					}
 				}
-      }
-	  }
-  }
+			}
+		}
+	}
+
+	post {
+		always {
+			sh './launch-test-env.sh -c || true'
+		}
+
+		failure {
+			emailext(
+				from: 'jenkins@mail.onlinedi.vision',
+				subject: "Build Failed: ${env.JOB_NAME} - ${env.BUILD_NUMBER}",
+				body: "Check ${env.BUILD_URL}",
+				to: 'TEAM@mail.onlinedi.vision'
+			)
+		}
+	}
 }

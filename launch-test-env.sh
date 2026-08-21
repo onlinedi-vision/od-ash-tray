@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 
-set -eu
+set -euo pipefail
 
 TESTDIR=${TESTDIR:-test}
-COMPOSE_FLAGS=(-f ci-compose.yaml)
-ASH_HOST="http://127.0.0.1:7377"
+SHADOW_PROJECT=${SHADOW_PROJECT:-od-ash-tray-shadow}
+export ASH_HOST_PORT=${ASH_HOST_PORT:-17377}
+COMPOSE_FLAGS=(-p "${SHADOW_PROJECT}" -f ci-compose.yaml)
+ASH_HOST="http://127.0.0.1:${ASH_HOST_PORT}"
 
 function get_etag_from_logs() {
-  tac "${TESTDIR}"/tests.out.logs |
-    grep -oPm1 '(?<=Etag: )[\w]+' |
+  grep -oP '(?<=Etag: )[\w]+' "${TESTDIR}"/tests.out.logs |
+    tail -n1 |
     xargs echo -n
 }
 
@@ -69,12 +71,26 @@ docker compose "${COMPOSE_FLAGS[@]}" up -d
 if [[ "$t_flag" == "true" ]]; then
   echo "========= RUNNING TESTS ==========="
   [ -d "${TESTDIR}" ] || mkdir "${TESTDIR}"
+  : >"${TESTDIR}"/tests.logs
+  : >"${TESTDIR}"/tests.out.logs
+
+  for attempt in {1..30}; do
+    if curl -fsS "${ASH_HOST}/ash/ping" >/dev/null; then
+      break
+    fi
+    if [[ "${attempt}" == "30" ]]; then
+      echo "Shadow service did not become ready"
+      exit 1
+    fi
+    sleep 1
+  done
+
   for file in ./shadows/*; do
     printf " TESTING: %s" "${file}..."
     cdn_file=$(curl -vksi -X POST -H "Content-Type: multipart/form-data" -F "data=@${file}" "${ASH_HOST}"/ash/upload |& tee -a "${TESTDIR}"/tests.logs | tail -n1)
     curl -vks "${ASH_HOST}"/"${cdn_file}" -o "${TESTDIR}"/test 2>>"${TESTDIR}"/tests.out.logs
     diff "${TESTDIR}"/test "${file}"
-    curl -vkH "If-None-Match: $(get_etag_from_logs)" "${ASH_HOST}"/"${cdn_file}" |& grep -q '304 Not Modified'
+    curl -vkH "If-None-Match: $(get_etag_from_logs)" "${ASH_HOST}"/"${cdn_file}" |& grep -F '304 Not Modified' >/dev/null
     echo " PASSED"
   done
 
