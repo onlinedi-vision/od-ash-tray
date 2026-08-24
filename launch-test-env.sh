@@ -35,8 +35,6 @@ function wipeout() {
   rm -rf test*
 }
 
-trap 'cleanup' SIGINT SIGTERM
-
 t_flag=''
 b_flag=''
 while getopts 'htcWb' flag; do
@@ -62,11 +60,15 @@ while getopts 'htcWb' flag; do
   esac
 done
 
+if [[ "${t_flag}" == "true" ]]; then
+  trap cleanup EXIT
+fi
+
 echo "========= BUILDING PROJECT ==========="
 if ! [[ "${b_flag}" == "true" ]]; then
   docker compose "${COMPOSE_FLAGS[@]}" build
 fi
-docker compose "${COMPOSE_FLAGS[@]}" up -d
+docker compose "${COMPOSE_FLAGS[@]}" up -d --wait --wait-timeout 30
 
 if [[ "$t_flag" == "true" ]]; then
   echo "========= RUNNING TESTS ==========="
@@ -74,25 +76,13 @@ if [[ "$t_flag" == "true" ]]; then
   : >"${TESTDIR}"/tests.logs
   : >"${TESTDIR}"/tests.out.logs
 
-  for attempt in {1..30}; do
-    if curl -fsS "${ASH_HOST}/ash/ping" >/dev/null; then
-      break
-    fi
-    if [[ "${attempt}" == "30" ]]; then
-      echo "Shadow service did not become ready"
-      exit 1
-    fi
-    sleep 1
-  done
-
   for file in ./shadows/*; do
     printf " TESTING: %s" "${file}..."
     cdn_file=$(curl -vksi -X POST -H "Content-Type: multipart/form-data" -F "data=@${file}" "${ASH_HOST}"/ash/upload |& tee -a "${TESTDIR}"/tests.logs | tail -n1)
     curl -vks "${ASH_HOST}"/"${cdn_file}" -o "${TESTDIR}"/test 2>>"${TESTDIR}"/tests.out.logs
     diff "${TESTDIR}"/test "${file}"
-    curl -vkH "If-None-Match: $(get_etag_from_logs)" "${ASH_HOST}"/"${cdn_file}" |& grep -F '304 Not Modified' >/dev/null
+    curl -vkH "If-None-Match: $(get_etag_from_logs)" "${ASH_HOST}"/"${cdn_file}" |& grep -qF '304 Not Modified'
     echo " PASSED"
   done
 
-  cleanup
 fi

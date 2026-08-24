@@ -86,9 +86,6 @@ pipeline {
 	}
 
 	post {
-		always {
-			sh './launch-test-env.sh -c || true'
-		}
 
 		failure {
 			emailext(
