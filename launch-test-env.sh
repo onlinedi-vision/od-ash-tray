@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 
-set -eu
+set -euo pipefail
 
 TESTDIR=${TESTDIR:-test}
-COMPOSE_FLAGS=(-f ci-compose.yaml)
-ASH_HOST="http://127.0.0.1:7377"
+SHADOW_PROJECT=${SHADOW_PROJECT:-od-ash-tray-shadow}
+export ASH_HOST_PORT=${ASH_HOST_PORT:-17377}
+COMPOSE_FLAGS=(-p "${SHADOW_PROJECT}" -f ci-compose.yaml)
+ASH_HOST="http://127.0.0.1:${ASH_HOST_PORT}"
 
 function get_etag_from_logs() {
-  tac "${TESTDIR}"/tests.out.logs |
-    grep -oPm1 '(?<=Etag: )[\w]+' |
+  grep -oP '(?<=Etag: )[\w]+' "${TESTDIR}"/tests.out.logs |
+    tail -n1 |
     xargs echo -n
 }
 
@@ -32,8 +34,6 @@ function wipeout() {
   sudo rm -rf cdn
   rm -rf test*
 }
-
-trap 'cleanup' SIGINT SIGTERM
 
 t_flag=''
 b_flag=''
@@ -60,23 +60,29 @@ while getopts 'htcWb' flag; do
   esac
 done
 
+if [[ "${t_flag}" == "true" ]]; then
+  trap cleanup EXIT
+fi
+
 echo "========= BUILDING PROJECT ==========="
 if ! [[ "${b_flag}" == "true" ]]; then
   docker compose "${COMPOSE_FLAGS[@]}" build
 fi
-docker compose "${COMPOSE_FLAGS[@]}" up -d
+docker compose "${COMPOSE_FLAGS[@]}" up -d --wait --wait-timeout 30
 
 if [[ "$t_flag" == "true" ]]; then
   echo "========= RUNNING TESTS ==========="
   [ -d "${TESTDIR}" ] || mkdir "${TESTDIR}"
+  : >"${TESTDIR}"/tests.logs
+  : >"${TESTDIR}"/tests.out.logs
+
   for file in ./shadows/*; do
     printf " TESTING: %s" "${file}..."
     cdn_file=$(curl -vksi -X POST -H "Content-Type: multipart/form-data" -F "data=@${file}" "${ASH_HOST}"/ash/upload |& tee -a "${TESTDIR}"/tests.logs | tail -n1)
     curl -vks "${ASH_HOST}"/"${cdn_file}" -o "${TESTDIR}"/test 2>>"${TESTDIR}"/tests.out.logs
     diff "${TESTDIR}"/test "${file}"
-    curl -vkH "If-None-Match: $(get_etag_from_logs)" "${ASH_HOST}"/"${cdn_file}" |& grep -q '304 Not Modified'
+    curl -vkH "If-None-Match: $(get_etag_from_logs)" "${ASH_HOST}"/"${cdn_file}" |& grep -qF '304 Not Modified'
     echo " PASSED"
   done
 
-  cleanup
 fi

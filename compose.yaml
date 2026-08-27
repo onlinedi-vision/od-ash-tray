@@ -1,6 +1,7 @@
 services:
   od-ash_tray:
-    build: .
+    image: "${OD_ASH_TRAY_IMAGE:?OD_ASH_TRAY_IMAGE must be set}"
+    pull_policy: always
     ports: 
       - "127.0.0.1:7377:7377"
     environment:
