@@ -72,7 +72,8 @@ docker compose "${COMPOSE_FLAGS[@]}" up -d --wait --wait-timeout 30
 
 if [[ "$t_flag" == "true" ]]; then
   echo "========= RUNNING TESTS ==========="
-  [ -d "${TESTDIR}" ] || mkdir -p "${TESTDIR}"
+  rm -rf "${TESTDIR}"
+  mkdir -p "${TESTDIR}"
   : >"${TESTDIR}"/tests.logs
   : >"${TESTDIR}"/tests.out.logs
 
