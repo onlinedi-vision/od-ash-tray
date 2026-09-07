@@ -1,3 +1,13 @@
+def buildAndTestGo = {
+	sh '''
+		docker run --rm \
+			-v "$PWD:/app" \
+			-w /app \
+			golang:1.24.5 \
+			sh -c 'go build -v ./... && go test -v ./...'
+	'''
+}
+
 def buildAndScanImage = {
 	def imageTag = "od-ash-tray:${env.GIT_COMMIT}"
 
@@ -39,8 +49,9 @@ pipeline {
 				stage('Build and Test Go') {
 					steps {
 						withChecks(name: 'Build and Test Go') {
-							sh 'go build -v ./...'
-							sh 'go test -v ./...'
+							script {
+								buildAndTestGo()
+							}
 						}
 					}
 				}
@@ -69,18 +80,23 @@ pipeline {
 			when {
 				allOf {
 					branch 'main'
-					not { changeRequest() }
+					not {
+						changeRequest()
+					}
 				}
 			}
 
 			steps {
 				withChecks(name: 'Build and Test Go') {
-					sh 'go build -v ./...'
-					sh 'go test -v ./...'
+					script {
+						buildAndTestGo()
+					}
 				}
+
 				withChecks(name: 'Run Shadow Tests') {
 					sh './launch-test-env.sh -t'
 				}
+
 				withChecks(name: 'Build and Scan Image') {
 					script {
 						buildAndScanImage()

@@ -1,10 +1,12 @@
-### Jenkins
+# Jenkins CI
 
-GitHub Actions have been replaced by two Jenkins pipelines:
+`ci/Jenkinsfile` defines the Jenkins CI pipeline for pull requests and the
+`main` branch.
 
-- `ci/Jenkinsfile` is the multibranch CI pipeline for pull requests and `main`.
-- `Jenkinsfile` publishes images for numeric semantic-version tags such as
-  `1.2.3`. It requires the Jenkins credential `docker-registry`.
+The pipeline performs the following checks:
 
-CI agents require Go 1.24.5, Docker with Compose and Buildx, and access to the
-Docker daemon for the Trivy scan and shadow tests.
+- Builds and tests the Go project in Docker.
+- Runs the shadow tests.
+- Builds the application container image.
+- Scans the image for HIGH and CRITICAL vulnerabilities with Trivy.
+- Archives shadow-test logs.
