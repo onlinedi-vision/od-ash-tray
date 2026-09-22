@@ -32,7 +32,7 @@ const (
 	BlockSize         = 16
 )
 
-func createNewAshTray(req *http.Request) (string, string, string, string) {
+func createNewAshTray(req *http.Request) (string, string, string, string, string) {
 	var extension string
 
 	for _, value := range req.MultipartForm.File {
@@ -47,17 +47,18 @@ func createNewAshTray(req *http.Request) (string, string, string, string) {
 	dirUUID, err := uuid.NewV7()
 	fileUUID, err2 := uuid.NewV7()
 	if err != nil || err2 != nil {
-		return "", "", "", ""
+		return "", "", "", "", ""
 	}
 
-	dirSha := sha256.Sum256([]byte(dirUUID[:]))
+	unhashedDir := hex.EncodeToString(dirUUID[:])
+	dirSha := sha256.Sum256([]byte(unhashedDir[:]))
 	unhashedFilename := hex.EncodeToString(fileUUID[:])
 	fileSha := sha256.Sum256([]byte(unhashedFilename[:]))
 
 	directory := hex.EncodeToString(dirSha[:])
 	filename := hex.EncodeToString(fileSha[:])
 
-	return fmt.Sprintf("%s/%s/%s.%s", ashID, directory, filename, extension), directory, unhashedFilename, extension
+	return fmt.Sprintf("%s/%s/%s.%s", ashID, directory, filename, extension), directory, unhashedDir, unhashedFilename, extension
 }
 
 func writeToFile(filePath string, directory string, data []byte) {
@@ -73,10 +74,10 @@ func writeToFile(filePath string, directory string, data []byte) {
 	ashFile.Write(data)
 }
 
-func encryptData(data string, uf string) ([]byte, error) {
-	keySha := sha256.Sum256([]byte(fmt.Sprintf("%s%s", ashKey, uf)))
+func encryptData(data string, ud string, uf string) ([]byte, error) {
+	keySha := sha256.Sum256([]byte(fmt.Sprintf("%s%s%s", ashKey, ud, uf)))
 
-	aesBlock, err := aes.NewCipher([]byte(hex.EncodeToString(keySha[:]))[:32])
+	aesBlock, err := aes.NewCipher(keySha[:])
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +103,7 @@ func encryptData(data string, uf string) ([]byte, error) {
 	return result, nil
 }
 
-func decryptData(data []byte, uf string) ([]byte, error) {
+func decryptData(data []byte, ud string, uf string) ([]byte, error) {
 	if len(data) < 4 {
 		return nil, fmt.Errorf("data too short")
 	}
@@ -114,9 +115,9 @@ func decryptData(data []byte, uf string) ([]byte, error) {
 
 	encryptedData := data[4 : 4+expectedLen]
 
-	keySha := sha256.Sum256([]byte(fmt.Sprintf("%s%s", ashKey, uf)))
+	keySha := sha256.Sum256([]byte(fmt.Sprintf("%s%s%s", ashKey, ud, uf)))
 
-	aesBlock, err := aes.NewCipher([]byte(hex.EncodeToString(keySha[:]))[:32])
+	aesBlock, err := aes.NewCipher(keySha[:])
 	if err != nil {
 		return nil, err
 	}
@@ -145,15 +146,17 @@ func decryptData(data []byte, uf string) ([]byte, error) {
 func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 	urlSplit := strings.Split(req.URL.Path, "/")
 	currentAshId := urlSplit[1]
-	currentFileDirectory := urlSplit[2]
+	ud := urlSplit[2]
 
 	filenameSplit := strings.Split(urlSplit[3], ".")
 	uf := filenameSplit[0]
 	ext := filenameSplit[1]
 
 	fileSha := sha256.Sum256([]byte(uf[:]))
+	dirSha := sha256.Sum256([]byte(ud[:]))
 
 	hashedFilename := hex.EncodeToString(fileSha[:])
+	currentFileDirectory := hex.EncodeToString(dirSha[:])
 	filePath := fmt.Sprintf("%s/%s/%s/%s.%s", ashTrayDir, currentAshId, currentFileDirectory, hashedFilename, ext)
 	fmt.Printf(" + fileDownload(): filePath=%s\n", filePath)
 
@@ -216,7 +219,7 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 				break
 			}
 
-			decryptedData, err := decryptData(data[offset : offset+4+blockLen], uf)
+			decryptedData, err := decryptData(data[offset : offset+4+blockLen], ud, uf)
 			if err != nil {
 				fmt.Println(err)
 				httpWriter.WriteHeader(500)
@@ -239,7 +242,7 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 }
 
 func fileUpload(httpWriter http.ResponseWriter, req *http.Request) {
-	filePath, directory, uf, ext := createNewAshTray(req)
+	filePath, directory, ud, uf, ext := createNewAshTray(req)
 	fmt.Printf(" + fileUpload(): filePath=%s   directory=%s\n", filePath, directory)
 
 	for _, value := range req.MultipartForm.File {
@@ -260,7 +263,7 @@ func fileUpload(httpWriter http.ResponseWriter, req *http.Request) {
 					}
 					break
 				}
-				data, err := encryptData(string(buffer[:readTotal]), uf)
+				data, err := encryptData(string(buffer[:readTotal]), ud, uf)
 				if err != nil {
 					fmt.Println(err)
 					return
@@ -270,7 +273,7 @@ func fileUpload(httpWriter http.ResponseWriter, req *http.Request) {
 		}
 	}
 	httpWriter.WriteHeader(201)
-	fmt.Fprintf(httpWriter, "%s/%s/%s.%s", ashID, directory, uf, ext)
+	fmt.Fprintf(httpWriter, "%s/%s/%s.%s", ashID, ud, uf, ext)
 }
 
 func higherTrayTimer() func() {
