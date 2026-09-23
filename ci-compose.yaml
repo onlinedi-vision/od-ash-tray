@@ -8,7 +8,7 @@ services:
       timeout: 3s
       retries: 30
     ports: 
-      - "127.0.0.1:${ASH_HOST_PORT:-17377}:7377"
+      - "0.0.0.0:${ASH_HOST_PORT:-17377}:7377"
     environment:
       - ASH_TRAY_ID=ash
       - ASH_TRAY_DIRECTORY=/cdn
