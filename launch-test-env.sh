@@ -37,10 +37,12 @@ function wipeout() {
 
 t_flag=''
 b_flag=''
-while getopts 'htcWb' flag; do
+l_flag=''
+while getopts 'htcWbl' flag; do
   case "${flag}" in
   b) b_flag='true' ;;
   t) t_flag='true' ;;
+  l) l_flag='true' ;;
   c)
     cleanup
     exit 0
@@ -62,6 +64,10 @@ done
 
 if [[ "${t_flag}" == "true" ]]; then
   trap cleanup EXIT
+fi
+
+if ! [[ "${l_flag}" == "true" ]]; then
+  docker run -v "$(pwd)":/app -w /app golangci/golangci-lint golangci-lint run
 fi
 
 echo "========= BUILDING PROJECT ==========="

@@ -19,11 +19,9 @@ import (
 )
 
 var (
-	ashID            = "ash"
-	ashTrayDir       = os.Getenv("ASH_TRAY_DIRECTORY")
-	ashHighSignature = os.Getenv("ASH_HIGH_SIGNATURE")
-	ashLowSignature  = os.Getenv("ASH_LOW_SIGNATURE")
-	ashKey           = []byte(os.Getenv("ASH_TRAY_KEY"))
+	ashID      = "ash"
+	ashTrayDir = os.Getenv("ASH_TRAY_DIRECTORY")
+	ashKey     = []byte(os.Getenv("ASH_TRAY_KEY"))
 )
 
 const (
@@ -80,9 +78,11 @@ func writeToFile(filePath string, directory string, data []byte) {
 		log.Fatal(err)
 	}
 	// TODO: wow what a retarded fucking way to do things...
-	defer ashFile.Close()
+	defer func() { _ = ashFile.Close() }()
 
-	ashFile.Write(data)
+	if _, err := ashFile.Write(data); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func encryptData(data string) ([]byte, error) {
@@ -159,12 +159,12 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 		fmt.Printf("   %s cannot open file: %s\n", err, filePath)
 
 		httpWriter.WriteHeader(500)
-		fmt.Fprintf(httpWriter, "500 Failed to open file.\r\n")
+		_, _ = fmt.Fprintf(httpWriter, "500 Failed to open file.\r\n")
 		return
 	case CannotCreateEtag:
 		fmt.Printf("   %s cannot create etag for:\n", err)
 		httpWriter.WriteHeader(500)
-		fmt.Fprintf(httpWriter, "500 Failed to create etag \r\n")
+		_, _ = fmt.Fprintf(httpWriter, "500 Failed to create etag \r\n")
 		return
 	case ValidEtag:
 		fmt.Printf("   etag HIT")
@@ -178,10 +178,10 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 		fmt.Printf("   %s file doesn't exist\n", filePath)
 
 		httpWriter.WriteHeader(404)
-		fmt.Fprintf(httpWriter, "404 Not Found \r\n")
+		_, _ = fmt.Fprintf(httpWriter, "404 Not Found \r\n")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	buffer := make([]byte, 65536)
 	var leftover []byte
@@ -194,7 +194,7 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 		readTotal, err := file.Read(buffer)
 		if err != nil && err != io.EOF {
 			httpWriter.WriteHeader(500)
-			fmt.Fprintf(httpWriter, "Failed at reading from file.")
+			_, _ = fmt.Fprintf(httpWriter, "Failed at reading from file.")
 			break
 		}
 
@@ -217,11 +217,14 @@ func fileDownload(httpWriter http.ResponseWriter, req *http.Request) {
 			if err != nil {
 				fmt.Println(err)
 				httpWriter.WriteHeader(500)
-				fmt.Fprintf(httpWriter, "Failed at file decryption.")
+				_, _ = fmt.Fprintf(httpWriter, "Failed at file decryption.")
 				return
 			}
 
-			httpWriter.Write(decryptedData)
+			if _, err := httpWriter.Write(decryptedData); err != nil {
+				fmt.Println(err)
+				return
+			}
 			offset += 4 + blockLen
 		}
 
@@ -245,7 +248,7 @@ func fileUpload(httpWriter http.ResponseWriter, req *http.Request) {
 			if err != nil {
 				fmt.Println(err)
 			}
-			defer file.Close()
+			defer func() { _ = file.Close() }()
 
 			buffer := make([]byte, encSize)
 
@@ -267,7 +270,7 @@ func fileUpload(httpWriter http.ResponseWriter, req *http.Request) {
 		}
 	}
 	httpWriter.WriteHeader(201)
-	fmt.Fprintf(httpWriter, "%s", filePath)
+	_, _ = fmt.Fprintf(httpWriter, "%s", filePath)
 }
 
 func higherTrayTimer() func() {
@@ -285,13 +288,17 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 	defer higherTrayTimer()()
 
 	fmt.Printf("[%s] %s: %s\n", req.Method, req.RemoteAddr, req.URL)
-	req.ParseMultipartForm(MaxFormMemorySize)
+	if err := req.ParseMultipartForm(MaxFormMemorySize); err != nil {
+		httpWriter.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprintf(httpWriter, "Failed to parse multipart form.")
+		return
+	}
 
 	httpWriter.Header().Set("Access-Control-Allow-Origin", "*")
 
 	if req.Method == "GET" {
 		if req.URL.Path == "/ash/ping" {
-			fmt.Fprintf(httpWriter, "ping")
+			_, _ = fmt.Fprintf(httpWriter, "ping")
 		} else {
 			ashGet(httpWriter, req)
 		}
@@ -299,7 +306,7 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 		fileUpload(httpWriter, req)
 	} else {
 		httpWriter.WriteHeader(400)
-		fmt.Fprintf(httpWriter, "Please GET for download or POST /upload for multipart form upload.")
+		_, _ = fmt.Fprintf(httpWriter, "Please GET for download or POST /upload for multipart form upload.")
 	}
 }
 
