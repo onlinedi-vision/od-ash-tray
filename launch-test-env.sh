@@ -67,7 +67,7 @@ if [[ "${t_flag}" == "true" ]]; then
 fi
 
 if ! [[ "${l_flag}" == "true" ]]; then
-  docker run -v "$(pwd)":/app -w /app golangci/golangci-lint golangci-lint run
+  docker run --rm -v "$(pwd)":/app -w /app golangci/golangci-lint golangci-lint run
 fi
 
 echo "========= BUILDING PROJECT ==========="
