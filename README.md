@@ -6,6 +6,4 @@ Online Division Ash Tray (od-ash-tray) is the Content Delivery Network Node Soft
 
 ### Quick Start
 
-```
-Missing :(
-```
+You can run tests locally using `./launch-test-env.sh -t`. And to just have a running instance you may use `./launch-test-env.sh` alone.
