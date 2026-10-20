@@ -3,16 +3,16 @@ services:
     build:
       dockerfile: Dockerfile.ci
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:7377/ash/ping"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:17377/ash/ping"]
       interval: 1s
       timeout: 3s
       retries: 30
-    ports: 
-      - "127.0.0.1:${ASH_HOST_PORT:-17377}:7377"
     environment:
       - ASH_TRAY_ID=ash
       - ASH_TRAY_DIRECTORY=/cdn
       - ASH_TRAY_KEY=aaaaaVVVVVVVAAAAAAAAaaaaaaaaaaaa
-      - ASH_TRAY_PORT=7377
+      - ASH_TRAY_PORT=17377
+    ports: 
+      - "127.0.0.1:${ASH_HOST_PORT:-17377}:17377"
     volumes:
       - ./cdn:/cdn:rw

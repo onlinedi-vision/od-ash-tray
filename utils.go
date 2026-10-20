@@ -32,7 +32,7 @@ func isEtagValid(filePath string, httpWriter http.ResponseWriter, req *http.Requ
 	if err != nil {
 		return CannotOpenFile, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	etag, err := shaFile(file)
 	if err != nil {
