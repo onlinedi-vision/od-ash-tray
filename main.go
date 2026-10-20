@@ -288,12 +288,8 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 	defer higherTrayTimer()()
 
 	fmt.Printf("[%s] %s: %s\n", req.Method, req.RemoteAddr, req.URL)
-	if err := req.ParseMultipartForm(MaxFormMemorySize); err != nil {
-		httpWriter.WriteHeader(http.StatusBadRequest)
-		_, _ = fmt.Fprintf(httpWriter, "Failed to parse multipart form.")
-		return
-	}
 
+	// TODO: remove cors as soon as possible
 	httpWriter.Header().Set("Access-Control-Allow-Origin", "*")
 
 	if req.Method == "GET" {
@@ -303,6 +299,13 @@ func higherTray(httpWriter http.ResponseWriter, req *http.Request) {
 			ashGet(httpWriter, req)
 		}
 	} else if req.Method == "POST" && req.URL.Path == "/ash/upload" {
+
+		if err := req.ParseMultipartForm(MaxFormMemorySize); err != nil {
+			httpWriter.WriteHeader(http.StatusBadRequest)
+			_, _ = fmt.Fprintf(httpWriter, "Failed to parse multipart form.")
+			return
+		}
+
 		fileUpload(httpWriter, req)
 	} else {
 		httpWriter.WriteHeader(400)
